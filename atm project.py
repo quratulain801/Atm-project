@@ -1,152 +1,128 @@
-import sys
-# dictionary
-Accounts = { 
-    "123434":{"name": "Alice", "pin": "1111", "balance": 1200.0},
-    "1334776":{"name": "Bob", "pin": "2222", "balance": 850.5},
-    "657598":{"name": "Charlie", "pin": "3333", "balance": 430.75}
+
+Accounts = {
+    "123456": {"pin": "1111", "balance": 5000},
+    "1334776": {"pin": "2222", "balance": 3000}
 }
 
-#Login function
-def login(Accounts):
-       ac_no=input("enter account number")
-       if ac_no in Accounts:
-              pin=input("enter your pin")
-              if pin==Accounts[ac_no]["pin"]:
-                     print(f"Welcome, {Accounts[ac_no]['name']}!")
-                     return ac_no  
-              else:
-               print("Incorrect PIN.")
-       else:
-        print("Account not found.")
-        return None
-              
-# check  balance funtion
-def check_balance(Accounts,ac_no):
-       print(f"Your balance is: ${Accounts[ac_no]['balance']:.2f}")
+MAX_ATTEMPTS = 3
+MAX_TRANSFERS_PER_DAY = 3
+transfer_count = {}
 
-#Deposit function
-def deposit(Accounts, acc_no):
-    withdraw_limit_perday=1000
-    try:
-        deposit_amount = float(input("Enter deposit amount (between $10 to $5000): "))
-    except ValueError:
-        print("❌ Invalid input. Please enter a numeric value.")
-        return
-    if 10 <= deposit_amount <= 5000:
-        Accounts[acc_no]["balance"] += deposit_amount
-        print(f"✅ Deposit successful! Your new balance is: ${Accounts[acc_no]['balance']:.2f}")
-    else:
-        print("❌ Amount must be between $10 and $5000.")
-
-#widhdraw function
-for account in Accounts.values():
-    account['withdrawn_today'] = 0.0 
-def withdraw(Accounts,acc_no):
-    DAILY_LIMIT = 1000.0
-    try:
-        withdraw_amount = float(input("Enter Withdraw amount (between $20 to $500): "))
-    except ValueError:
-        print("❌ Invalid input. Please enter a numeric value.")
-        return
-    if 20 <= withdraw_amount <= 500:
-         if withdraw_amount % 20 != 0:
-            print("❌ Amount must be a multiple of $20. (ATM dispenses $20 bills only)")
-            return
-         if withdraw_amount<=Accounts[acc_no]['balance']:
-              Accounts[acc_no]['balance']-=withdraw_amount
-              Accounts[acc_no]['withdrawn_today'] += withdraw_amount
-              print(f"✅ Withdraw successful! Your new balance is: ${Accounts[acc_no]['balance']:.2f}")
-         else:
-            print("❌ Insufficient balance.")
-    else:
-        print("❌ Amount must be between $20 and $500.")
-    
-#transfer function
-def transfer(Accounts, sender, receiver):
-    pin = input("🔐 Enter your PIN to confirm: ")
-    if Accounts.get(sender) and Accounts[sender]["pin"] == pin:
-        if sender == receiver:
-            print("❌ You cannot transfer money to the same account.")
-            return
-        if Accounts.get(receiver):
-            try:
-                amount = float(input("Enter amount (between $10 to $2000): "))
-            except ValueError:
-                print("❌ Invalid amount. Please enter a numeric value.")
-                return            
-            if 10 <= amount <= 2000:
-                if Accounts[sender]["balance"] >= amount:
-                    Accounts[sender]["balance"] -= amount
-                    Accounts[receiver]["balance"] += amount
-                    print("✅ Transfer successful!")
-                    print(f"💰 ${amount:.2f} transferred to {Accounts[receiver]['name']}.")
-                    print(f"Your new balance is: Rs {Accounts[sender]['balance']:.2f}")
-                else:
-                    print("❌ Insufficient balance.")
-            else:
-                print("❌ Amount must be between $10 and $2000.")
+def login(accounts):
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
+        acc_no = input("Enter your account number: ")
+        pin = input("Enter PIN: ")
+        if acc_no in accounts and accounts[acc_no]["pin"] == pin:
+            print("\n✅ Login successful.")
+            return acc_no
         else:
-            print("❌ Receiver account not found.")
-    else:
-        print("❌ Invalid sender account or incorrect PIN.")
+            print("❌ Invalid account number or PIN.")
+            attempts += 1
+    print("\n🚫 Too many incorrect attempts. Access denied.")
+    return None
 
-#change pin function
-def change_pin(ac_no):
+def check_balance(accounts, acc_no):
+    print(f"\nYour current balance is: Rs {accounts[acc_no]['balance']}")
+
+def deposit(accounts, acc_no):
+    amount = float(input("Enter amount to deposit: "))
+    if amount > 0:
+        accounts[acc_no]['balance'] += amount
+        print(f"\n✅ Rs {amount} deposited successfully.")
+    else:
+        print("❌ Invalid amount.")
+
+def withdraw(accounts, acc_no):
+    amount = float(input("Enter amount to withdraw: "))
+    if 0 < amount <= accounts[acc_no]['balance']:
+        accounts[acc_no]['balance'] -= amount
+        print(f"\n✅ Rs {amount} withdrawn successfully.")
+    else:
+        print("❌ Insufficient funds or invalid amount.")
+
+def transfer(accounts, sender, receiver):
+    if sender not in transfer_count:
+        transfer_count[sender] = 0
+    if transfer_count[sender] >= MAX_TRANSFERS_PER_DAY:
+        print("\n🚫 Daily transfer limit reached.")
+        return
+
+    if receiver not in accounts:
+        print("❌ Receiver account not found.")
+        return
+
+    pin_attempts = 0
+    while pin_attempts < MAX_ATTEMPTS:
+        pin = input("Enter your PIN for transfer: ")
+        if pin == accounts[sender]['pin']:
+            amount = float(input("Enter amount (between $10 to $2000): "))
+            if 10 <= amount <= 2000 and accounts[sender]['balance'] >= amount:
+                accounts[sender]['balance'] -= amount
+                accounts[receiver]['balance'] += amount
+                transfer_count[sender] += 1
+                print("\n✅ Transfer successful.")
+            else:
+                print("❌ Invalid amount or insufficient balance.")
+            return
+        else:
+            pin_attempts += 1
+            print("❌ Incorrect PIN.")
+
+    print("\n🚫 Transfer cancelled after 3 incorrect PIN attempts.")
+
+def change_pin(acc_no):
     current_pin = input("Enter your current PIN: ")
-    
-    if current_pin == Accounts[ac_no]["pin"]:
+    if current_pin == Accounts[acc_no]["pin"]:
         while True:
             new_pin = input("Enter your new 4-digit PIN: ")
             if new_pin.isdigit() and len(new_pin) == 4 and new_pin != current_pin:
-                confirmation_pin = input("Re-enter your new PIN for confirmation: ")
-                if confirmation_pin == new_pin:
-                    Accounts[ac_no]["pin"] = new_pin
-                    print("✅ PIN changed successfully.")
+                confirm_pin = input("Re-enter your new PIN: ")
+                if confirm_pin == new_pin:
+                    Accounts[acc_no]["pin"] = new_pin
+                    print("\n✅ PIN changed successfully.")
                     break
                 else:
-                    print("❌ Confirmation does not match. Try again.")
+                    print("❌ Confirmation does not match.")
             else:
-                print("❌ Invalid PIN. Must be 4 digits and different from current.")
+                print("❌ Invalid PIN.")
     else:
         print("❌ Incorrect current PIN.")
-                       
-# exit menu
+
 def exit_atm():
-    print("👋 Exiting ATM. Thank you!")
-    sys.exit()
-                              
-#display menu
-def main_menu(Accouonts):
-    acc_no = login(Accounts)
+    print("\nThank you for using our ATM. Goodbye!")
+    exit()
+
+def main_menu(accounts):
+    acc_no = login(accounts)
     if not acc_no:
         return
+
     while True:
         print("\nATM Menu:")
         print("1. Check Balance")
-        print("2. Deposit money")
-        print("3. Withdraw money")
-        print("4. Transfer money")
-        print("5. change pin")
+        print("2. Deposit Money")
+        print("3. Withdraw Money")
+        print("4. Transfer Money")
+        print("5. Change PIN")
         print("6. Exit")
-        choice=input("enter your choice betweem 1-6")
+        choice = input("Enter your choice between 1-6: ")
+
         if choice == "1":
-            check_balance(Accounts, acc_no)
+            check_balance(accounts, acc_no)
         elif choice == "2":
-            deposit(Accounts, acc_no)
+            deposit(accounts, acc_no)
         elif choice == "3":
-            withdraw(Accounts, acc_no)
+            withdraw(accounts, acc_no)
         elif choice == "4":
             receiver = input("Enter receiver account number: ")
-            transfer(Accounts, acc_no, receiver)
+            transfer(accounts, acc_no, receiver)
         elif choice == "5":
             change_pin(acc_no)
         elif choice == "6":
             exit_atm()
-# -------- Start Program -------- #                                                          
+        else:
+            print("❌ Invalid choice. Please try again.")
+
+# Run the program
 main_menu(Accounts)
-
-
-
-
-
-4
